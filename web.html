@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Clone</title>
+    <link rel="stylesheet" href="nhi.css">
+    <style>
+        body {
+            background: rgb(247, 99, 161) margin: 0;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .post {
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+        
+        .like-comment {
+            display: flex;
+            align-items: center;
+        }
+        
+        .comment-input {
+            margin-left: 10px;
+            flex-grow: 1;
+        }
+        
+        img {
+            max-width: 100%;
+            margin-top: 5px;
+        }
+        
+        button {
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>HOUNIS NHI</h1>
+    </header>
+    <main>
+        <section id="post-section">
+            <input type="text" id="username" placeholder="Tên của bạn" required>
+            <input type="email" id="useremail" placeholder="Email của bạn" required>
+            <textarea id="post-input" placeholder="Bạn đang nghĩ gì?" rows="4" style="width: 100%;"></textarea>
+            <label class="custom-file-upload">
+                <input type="file" id="image-input" accept="image/*" multiple onchange="previewImage()">
+                Chọn Ảnh
+            </label>
+            <div id="selected-images" style="display: flex; flex-wrap: wrap; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">
+                <!-- Ảnh đã chọn sẽ hiển thị ở đây -->
+            </div>
+            <button onclick="addPost()">Đăng</button>
+            <button onclick="resetPosts()">Đặt lại tất cả bài viết</button>
+        </section>
+        <section id="posts">
+            <h2>BÀI VIẾT VỀ CHỊ NHI</h2>
+            <div id="post-container"></div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; HUONIS NHI Clone</p>
+    </footer>
+    <script>
+        function previewImage() {
+            const imageInput = document.getElementById('image-input');
+            const selectedImagesContainer = document.getElementById('selected-images');
+            selectedImagesContainer.innerHTML = '';
+            Array.from(imageInput.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = document.createElement('img');
+                    img.src = event.target.result;
+                    img.style.width = '50px';
+                    img.style.height = 'auto';
+                    img.style.margin = '5px';
+                    selectedImagesContainer.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function addPost() {
+            const postInput = document.getElementById('post-input');
+            const imageInput = document.getElementById('image-input');
+            const usernameInput = document.getElementById('username');
+            const useremailInput = document.getElementById('useremail');
+            const postText = postInput.value.trim();
+            const fileList = imageInput.files;
+            if (postText === '' && fileList.length === 0) {
+                alert("Vui lòng nhập nội dung hoặc chọn ảnh.");
+                return;
+            }
+            const images = [];
+            const promises = [];
+            Array.from(fileList).forEach(file => {
+                const reader = new FileReader();
+                promises.push(new Promise((resolve) => {
+                    reader.onload = (event) => {
+                        images.push(event.target.result);
+                        resolve();
+                    };
+                    reader.readAsDataURL(file);
+                }));
+            });
+            Promise.all(promises).then(() => {
+                const post = {
+                    username: usernameInput.value.trim(),
+                    useremail: useremailInput.value.trim(),
+                    text: postText,
+                    images: images,
+                    likes: 0,
+                    comments: [],
+                    time: new Date().toLocaleString()
+                };
+                savePost(post);
+                resetInputs();
+            });
+        }
+
+        function savePost(post) {
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            posts.push(post);
+            localStorage.setItem('posts', JSON.stringify(posts));
+            renderPosts();
+        }
+
+        function resetInputs() {
+            document.getElementById('post-input').value = '';
+            document.getElementById('username').value = '';
+            document.getElementById('useremail').value = '';
+            document.getElementById('image-input').value = '';
+            document.getElementById('selected-images').innerHTML = '';
+        }
+
+        function renderPosts() {
+            const postsContainer = document.getElementById('post-container');
+            postsContainer.innerHTML = '';
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            posts.forEach((post) => {
+                const postDiv = document.createElement('div');
+                postDiv.classList.add('post');
+                const userElement = document.createElement('p');
+                userElement.textContent = `${post.username} (${post.useremail})`;
+                postDiv.appendChild(userElement);
+                const textElement = document.createElement('p');
+                textElement.textContent = post.text;
+                postDiv.appendChild(textElement);
+                post.images.forEach(image => {
+                    const img = document.createElement('img');
+                    img.src = image;
+                    postDiv.appendChild(img);
+                });
+                const timeElement = document.createElement('small');
+                timeElement.textContent = `Đăng vào: ${post.time}`;
+                postDiv.appendChild(timeElement);
+                const likeCommentDiv = document.createElement('div');
+                likeCommentDiv.classList.add('like-comment');
+                const likeButton = document.createElement('button');
+                likeButton.textContent = `Thích (${post.likes})`;
+                likeButton.onclick = () => {
+                    post.likes++;
+                    updatePost(post);
+                    renderPosts();
+                };
+                likeCommentDiv.appendChild(likeButton);
+                const commentInput = document.createElement('input');
+                commentInput.className = 'comment-input';
+                commentInput.placeholder = 'Bình luận...';
+                commentInput.onkeydown = (event) => {
+                    if (event.key === 'Enter') {
+                        const commentText = commentInput.value.trim();
+                        if (commentText) {
+                            post.comments.push(`${post.username}: ${commentText}`);
+                            updatePost(post);
+                            renderPosts();
+                            commentInput.value = '';
+                        }
+                    }
+                };
+                likeCommentDiv.appendChild(commentInput);
+                postDiv.appendChild(likeCommentDiv);
+                post.comments.forEach(comment => {
+                    const commentElement = document.createElement('p');
+                    commentElement.textContent = comment;
+                    commentElement.style.marginLeft = '20px';
+                    postDiv.appendChild(commentElement);
+                });
+                postsContainer.appendChild(postDiv);
+            });
+        }
+
+        function updatePost(post) {
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            const index = posts.findIndex(p => p.time === post.time);
+            posts[index] = post;
+            localStorage.setItem('posts', JSON.stringify(posts));
+        }
+
+        function resetPosts() {
+            localStorage.removeItem('posts');
+            renderPosts();
+        }
+
+        window.onload = renderPosts;
+    </script>
+</body>
+
+</html>
